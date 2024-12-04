@@ -107,9 +107,6 @@ class ProductionMatrix:
 
     def __init__(self, chains: List[List[Machine]]):
         self.chains = chains
-        for m in self.chains[4]:
-            m.production_mod_num = m.mod_slot_num
-            m.update_quality_matrix()
 
     def update(self, input_quality_level: int):
         cur_col_idx = 0
@@ -204,11 +201,10 @@ production_chains = [
     [AssemblingMachine(0)],
 ]
 
-
 machine_matrix = ProductionMatrix(production_chains)
 best_mod_config = []
 max_legendary_count = 0
-legendary_count = quality_calculation(machine_matrix,0)
+legendary_count = quality_calculation(machine_matrix, 0)
 print(legendary_count)
 for i in range(0, 5):
     (best_mod_config, max_legendary_count) = select_bast_mod_config(
