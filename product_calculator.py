@@ -141,7 +141,9 @@ class ProductionMatrix:
         return result
 
 
-def quality_calculation(machine_matrix: ProductionMatrix, input_quality_level: int):
+def quality_calculation(
+    machine_matrix: ProductionMatrix, input_quality_level: int, recycle_legendary: bool
+):
     machine_chains = machine_matrix.chains
     convert_quality_matrix = np.eye(5)
     cycle_quality_matrix = np.eye(5)
@@ -159,18 +161,29 @@ def quality_calculation(machine_matrix: ProductionMatrix, input_quality_level: i
     input = np.array([0, 0, 0, 0, 0])
     input[input_quality_level] = 1
     input = np.matmul(input, convert_quality_matrix)
+    legendary_count = 0.0
+    if recycle_legendary:
+        legendary_count = legendary_count + input[4]
+        input[4] = 0
     for i in range(0, 5):
+        if len(machine_chains[i]) == 0:
+            break
         cycle_quality_matrix[i] = machine_chains[i][
             len(machine_chains[i]) - 1
         ].quality_matrix[i]
-    legendary_count = 0.0
     craft_count = 0
     recycler = Recycler()
+    if recycle_legendary:
+        recycler.quality_matrix[4][4] = 0.25
     while True:
         next = np.matmul(input, cycle_quality_matrix)
-        legendary_count = legendary_count + next[4]
-        next[4] = 0
+        if not recycle_legendary:
+            legendary_count = legendary_count + next[4]
+            next[4] = 0
         next = np.matmul(next, recycler.quality_matrix)
+        if recycle_legendary:
+            legendary_count = legendary_count + next[4]
+            next[4] = 0
         if np.abs(input - next).max() < 0.000000001:
             break
         input = next
@@ -178,11 +191,17 @@ def quality_calculation(machine_matrix: ProductionMatrix, input_quality_level: i
     return legendary_count
 
 
-def select_bast_mod_config(machine_matrix: ProductionMatrix, input_quality_level: int):
-    max_legendary_count = quality_calculation(machine_matrix, input_quality_level)
+def select_bast_mod_config(
+    machine_matrix: ProductionMatrix, input_quality_level: int, recycle_legendary: bool
+):
+    max_legendary_count = quality_calculation(
+        machine_matrix, input_quality_level, recycle_legendary
+    )
     best_mod_config = machine_matrix.get_mod_config()
     while machine_matrix.update(input_quality_level):
-        legendary_count = quality_calculation(machine_matrix, input_quality_level)
+        legendary_count = quality_calculation(
+            machine_matrix, input_quality_level, recycle_legendary
+        )
         if max_legendary_count < legendary_count:
             max_legendary_count = legendary_count
             best_mod_config = machine_matrix.get_mod_config()
@@ -190,25 +209,26 @@ def select_bast_mod_config(machine_matrix: ProductionMatrix, input_quality_level
 
 
 np.set_printoptions(suppress=True)
-# [Foundry(), EletricFurance(), Foundry(), AssemblingMachine()],
+# [Foundry(0), EletricFurance(0), Foundry(0)],
 # [EletronmagneticPlant()],
 # [AssemblingMachine()],
 production_chains = [
-    [AssemblingMachine(0)],
-    [AssemblingMachine(0)],
-    [AssemblingMachine(0)],
-    [AssemblingMachine(0)],
-    [AssemblingMachine(0)],
+    [Foundry(4), EletricFurance(2), Foundry(3)],
+    [Foundry(0), EletricFurance(0), Foundry(3)],
+    [Foundry(0), EletricFurance(0), Foundry(3)],
+    [Foundry(0), EletricFurance(0), Foundry(4)],
+    [Foundry(0), EletricFurance(0), Foundry(0)],
 ]
 
 machine_matrix = ProductionMatrix(production_chains)
 best_mod_config = []
 max_legendary_count = 0
-legendary_count = quality_calculation(machine_matrix, 0)
+legendary_count = quality_calculation(machine_matrix, 0, True)
 print(legendary_count)
+
 for i in range(0, 5):
     (best_mod_config, max_legendary_count) = select_bast_mod_config(
-        machine_matrix, 4 - i
+        machine_matrix, 4 - i, True
     )
     machine_matrix.set_mod_config(best_mod_config, 4 - i)
 
